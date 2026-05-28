@@ -1,0 +1,21 @@
+node_modules
+.env
+dist
+artifacts
+cache
+typechain-types
+
+# OS
+.DS_Store
+**/.DS_Store
+
+# IDE
+.vscode
+.idea
+
+# Claude Code
+.claude
+
+# Coverage
+coverage
+coverage.json
