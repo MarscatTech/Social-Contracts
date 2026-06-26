@@ -35,6 +35,7 @@ contract MarscatPoints is Ownable, ReentrancyGuard, Pausable, EIP712 {
     constructor(address initialSigner) Ownable(msg.sender) EIP712("MarscatPoints", "1") {
         require(initialSigner != address(0), "Invalid signer address");
         signer = initialSigner;
+        emit SignerUpdated(address(0), initialSigner);
     }
 
     // ─── User functions ────────────────────────────────────────────────────────
