@@ -4,11 +4,12 @@ pragma solidity 0.8.28;
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
+import "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
 import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-contract MarscatRedPacket is Ownable, ReentrancyGuard, Pausable {
+contract MarscatRedPacket is Ownable, ReentrancyGuard, Pausable, EIP712 {
     using ECDSA for bytes32;
     using SafeERC20 for IERC20;
 
@@ -29,13 +30,17 @@ contract MarscatRedPacket is Ownable, ReentrancyGuard, Pausable {
     // ─── Storage ───────────────────────────────────────────────────────────────
     mapping(bytes32 => RedPacket) public redPackets;
 
+    // ─── EIP-712 type hash ─────────────────────────────────────────────────────
+    bytes32 private constant _CLAIM_TYPEHASH =
+        keccak256("ClaimRedPacket(address claimer,bytes32 redPacketId)");
+
     // ─── Events ────────────────────────────────────────────────────────────────
     event RedPacketCreated(bytes32 indexed redPacketId, address indexed sender, address indexed token, uint256 amount, address claimKey, uint256 createdAt);
     event RedPacketClaimed(bytes32 indexed redPacketId, address indexed claimedBy, uint256 claimedBlock);
     event RedPacketRevoked(bytes32 indexed redPacketId, address indexed sender, uint256 revokedAt);
 
     // ─── Constructor ───────────────────────────────────────────────────────────
-    constructor() Ownable(msg.sender) {}
+    constructor() Ownable(msg.sender) EIP712("MarscatRedPacket", "1") {}
 
     // ─── Internal helpers ──────────────────────────────────────────────────────
     function _generateId(address sender, address claimKey, address token, uint256 amount) internal view returns (bytes32) {
@@ -43,13 +48,9 @@ contract MarscatRedPacket is Ownable, ReentrancyGuard, Pausable {
     }
 
     function _verifyClaimSignature(bytes32 redPacketId, address claimKey, bytes calldata signature) internal view {
-        bytes32 messageHash = keccak256(
-            abi.encodePacked(
-                "\x19Ethereum Signed Message:\n32",
-                keccak256(abi.encodePacked(msg.sender, redPacketId))
-            )
-        );
-        address recovered = ECDSA.recover(messageHash, signature);
+        bytes32 structHash = keccak256(abi.encode(_CLAIM_TYPEHASH, msg.sender, redPacketId));
+        bytes32 digest = _hashTypedDataV4(structHash);
+        address recovered = ECDSA.recover(digest, signature);
         require(recovered == claimKey, "Invalid signature");
     }
 
