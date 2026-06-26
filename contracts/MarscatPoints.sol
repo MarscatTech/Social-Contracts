@@ -60,7 +60,8 @@ contract MarscatPoints is Ownable, ReentrancyGuard, Pausable, EIP712 {
 
     function rechargeWithPoints(
         uint8 packageId,
-        address rechargeAddress
+        address rechargeAddress,
+        uint256 maxAmount
     ) external nonReentrant whenNotPaused {
         require(rechargeAddress != address(0), "Invalid recharge address");
 
@@ -68,6 +69,7 @@ contract MarscatPoints is Ownable, ReentrancyGuard, Pausable, EIP712 {
         uint256 duration = packageDurations[packageId];
         require(price > 0, "Package price not set");
         require(duration > 0, "Package duration not set");
+        require(price <= maxAmount, "Price exceeds maximum amount");
         require(_balances[msg.sender] >= price, "Insufficient points balance");
 
         _balances[msg.sender] -= price;

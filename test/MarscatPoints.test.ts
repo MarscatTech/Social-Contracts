@@ -128,7 +128,7 @@ describe("MarscatPoints", function () {
     it("should deduct points and record subscription (new)", async function () {
       await givePoints(user, 200n);
       const before = BigInt(await time.latest());
-      await contract.connect(user).rechargeWithPoints(PACKAGE_ID, other.address);
+      await contract.connect(user).rechargeWithPoints(PACKAGE_ID, other.address, PACKAGE_PRICE);
 
       expect(await contract.balanceOf(user.address)).to.equal(100n);
       const expiredAt = await contract.getExpiredAt(other.address);
@@ -140,10 +140,10 @@ describe("MarscatPoints", function () {
 
     it("should extend subscription if not yet expired", async function () {
       await givePoints(user, 300n);
-      await contract.connect(user).rechargeWithPoints(PACKAGE_ID, other.address);
+      await contract.connect(user).rechargeWithPoints(PACKAGE_ID, other.address, PACKAGE_PRICE);
       const firstExpiry = await contract.getExpiredAt(other.address);
 
-      await contract.connect(user).rechargeWithPoints(PACKAGE_ID, other.address);
+      await contract.connect(user).rechargeWithPoints(PACKAGE_ID, other.address, PACKAGE_PRICE);
       const secondExpiry = await contract.getExpiredAt(other.address);
 
       expect(secondExpiry).to.equal(firstExpiry + PACKAGE_DURATION);
@@ -151,12 +151,12 @@ describe("MarscatPoints", function () {
 
     it("should restart subscription if expired", async function () {
       await givePoints(user, 300n);
-      await contract.connect(user).rechargeWithPoints(PACKAGE_ID, other.address);
+      await contract.connect(user).rechargeWithPoints(PACKAGE_ID, other.address, PACKAGE_PRICE);
 
       await time.increase(PACKAGE_DURATION + 1n);
 
       const beforeSecond = BigInt(await time.latest());
-      await contract.connect(user).rechargeWithPoints(PACKAGE_ID, other.address);
+      await contract.connect(user).rechargeWithPoints(PACKAGE_ID, other.address, PACKAGE_PRICE);
       const expiredAt = await contract.getExpiredAt(other.address);
       const expected = beforeSecond + PACKAGE_DURATION;
       expect(expiredAt).to.be.gte(expected - 5n);
@@ -165,39 +165,45 @@ describe("MarscatPoints", function () {
 
     it("should allow recharging to self", async function () {
       await givePoints(user, 200n);
-      await expect(contract.connect(user).rechargeWithPoints(PACKAGE_ID, user.address)).to.not.be.reverted;
+      await expect(contract.connect(user).rechargeWithPoints(PACKAGE_ID, user.address, PACKAGE_PRICE)).to.not.be.reverted;
       expect(await contract.getExpiredAt(user.address)).to.be.gt(0n);
+    });
+
+    it("should revert when price exceeds maxAmount", async function () {
+      await givePoints(user, 200n);
+      await expect(contract.connect(user).rechargeWithPoints(PACKAGE_ID, other.address, PACKAGE_PRICE - 1n))
+        .to.be.revertedWith("Price exceeds maximum amount");
     });
 
     it("should revert with insufficient points", async function () {
       await givePoints(user, 50n);
-      await expect(contract.connect(user).rechargeWithPoints(PACKAGE_ID, other.address))
+      await expect(contract.connect(user).rechargeWithPoints(PACKAGE_ID, other.address, PACKAGE_PRICE))
         .to.be.revertedWith("Insufficient points balance");
     });
 
     it("should revert when package price not set", async function () {
       await givePoints(user, 200n);
-      await expect(contract.connect(user).rechargeWithPoints(99, other.address))
+      await expect(contract.connect(user).rechargeWithPoints(99, other.address, PACKAGE_PRICE))
         .to.be.revertedWith("Package price not set");
     });
 
     it("should revert when package duration not set", async function () {
       await contract.setPackagePrice(2, 100n);
       await givePoints(user, 200n);
-      await expect(contract.connect(user).rechargeWithPoints(2, other.address))
+      await expect(contract.connect(user).rechargeWithPoints(2, other.address, PACKAGE_PRICE))
         .to.be.revertedWith("Package duration not set");
     });
 
     it("should revert with zero rechargeAddress", async function () {
       await givePoints(user, 200n);
-      await expect(contract.connect(user).rechargeWithPoints(PACKAGE_ID, ethers.ZeroAddress))
+      await expect(contract.connect(user).rechargeWithPoints(PACKAGE_ID, ethers.ZeroAddress, PACKAGE_PRICE))
         .to.be.revertedWith("Invalid recharge address");
     });
 
     it("should revert when paused", async function () {
       await givePoints(user, 200n);
       await contract.pause();
-      await expect(contract.connect(user).rechargeWithPoints(PACKAGE_ID, other.address))
+      await expect(contract.connect(user).rechargeWithPoints(PACKAGE_ID, other.address, PACKAGE_PRICE))
         .to.be.revertedWithCustomError(contract, "EnforcedPause");
     });
   });
