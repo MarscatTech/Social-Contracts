@@ -67,10 +67,14 @@ contract MarscatRedPacket is Ownable, ReentrancyGuard, Pausable, EIP712 {
         redPacketId = _generateId(msg.sender, claimKey, token, amount);
         require(redPackets[redPacketId].createdAt == 0, "RedPacket already exists");
 
+        uint256 balanceBefore = IERC20(token).balanceOf(address(this));
+        IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
+        uint256 actualReceived = IERC20(token).balanceOf(address(this)) - balanceBefore;
+
         redPackets[redPacketId] = RedPacket({
             sender: msg.sender,
             token: token,
-            amount: amount,
+            amount: actualReceived,
             claimKey: claimKey,
             createdAt: block.timestamp,
             status: RedPacketStatus.Pending,
@@ -78,9 +82,7 @@ contract MarscatRedPacket is Ownable, ReentrancyGuard, Pausable, EIP712 {
             claimedBlock: 0
         });
 
-        IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
-
-        emit RedPacketCreated(redPacketId, msg.sender, token, amount, claimKey, block.timestamp);
+        emit RedPacketCreated(redPacketId, msg.sender, token, actualReceived, claimKey, block.timestamp);
     }
 
     function createNativeRedPacket(
