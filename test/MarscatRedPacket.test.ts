@@ -18,10 +18,28 @@ describe("MarscatRedPacket", function () {
     redPacketId: string
   ): Promise<string> {
     const wallet = new ethers.Wallet(claimPrivKey);
-    const msgHash = ethers.keccak256(
-      ethers.solidityPacked(["address", "bytes32"], [receiverAddress, redPacketId])
-    );
-    return wallet.signMessage(ethers.getBytes(msgHash));
+    const contractAddress = await contract.getAddress();
+
+    const domain = {
+      name: "MarscatRedPacket",
+      version: "1",
+      chainId: (await ethers.provider.getNetwork()).chainId,
+      verifyingContract: contractAddress,
+    };
+
+    const types = {
+      ClaimRedPacket: [
+        { name: "claimer", type: "address" },
+        { name: "redPacketId", type: "bytes32" },
+      ],
+    };
+
+    const value = {
+      claimer: receiverAddress,
+      redPacketId: redPacketId,
+    };
+
+    return wallet.signTypedData(domain, types, value);
   }
 
   async function createNativePacket(
